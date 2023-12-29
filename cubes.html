@@ -435,7 +435,7 @@
 					},
 					{
 						mask: 
-							transformMesh(makeCubeOpenSide(256, 128, 512), matrixMultiplyMatrix(translation(0,0,-256), rotationY(Math.PI))),
+							transformMesh(makeCubeOpenSide(256, 128, 512), matrixMultiplyMatrix(translation(0,0,-256), rotationY(Math.PI/2))),
 						meshes: [
 							makeCube(32, 32, 32),
 							makeCubeWire(32, 32, 32),
@@ -443,7 +443,7 @@
 					},
 					{
 						mask: 
-							transformMesh(makeCubeOpenSide(256, 128, 512), matrixMultiplyMatrix(translation(0,0,-256), rotationY(Math.PI/2))),
+							transformMesh(makeCubeOpenSide(256, 128, 512), matrixMultiplyMatrix(translation(0,0,-256), rotationY(Math.PI))),
 						meshes: [
 							makeCube(48, 48, 48),
 							makeCubeWire(48, 48, 48),
@@ -459,7 +459,7 @@
 					},
 					{
 						mask: 
-							transformMesh(makeCubeOpenSide(256, 256, 256), matrixMultiplyMatrix(rotationX(Math.PI/2), translation(0,-128,0))),
+							transformMesh(makeCubeOpenSide(256, 256, 256), matrixMultiplyMatrix(rotationX(-Math.PI/2), translation(0,128,0))),
 						meshes: [
 							transformMesh(makeCube(96, 96, 96), matrixMultiplyMatrix(rotationY(Math.PI/4), rotationX(Math.PI/4))),
 							transformMesh(makeCubeWire(96, 96, 96), matrixMultiplyMatrix(rotationY(Math.PI/4), rotationX(Math.PI/4))),
@@ -467,7 +467,7 @@
 					},
 					{
 						mask: 
-							transformMesh(makeCubeOpenSide(256, 256, 256), matrixMultiplyMatrix(rotationX(-Math.PI/2), translation(0,128,0))),
+							transformMesh(makeCubeOpenSide(256, 256, 256), matrixMultiplyMatrix(rotationX(Math.PI/2), translation(0,-128,0))),
 						meshes: [
 							transformMesh(makeCube(64, 64, 64), rotationY(Math.PI/4)),
 							transformMesh(makeCubeWire(64, 64, 64), rotationY(Math.PI/4)),
