@@ -3,6 +3,7 @@
 	<head>
 		<meta charset="utf-8">
 		<title>Magic Cube</title>
+		<link rel="icon" href="favicon.svg">
 		<style>
 
 			:root {
@@ -16,6 +17,9 @@
 				grid-template-rows: 1fr 1fr 1fr;
 				margin: 0;
 				height: 100%;
+				overflow: hidden;
+				background: #224466;
+				background: linear-gradient(#3388aa, #224466);
 			}
 
 			.screen {
@@ -26,6 +30,7 @@
 				background: white;
 				height: auto;
 				width: 100%;
+				background:transparent;
 			}
 		</style>
 	</head>
@@ -113,12 +118,12 @@
 						[5,4,0],[5,0,1],
 					],
 					colors: color ? Array(12).fill(color) : [
-						'red','red',
-						'cyan','cyan',
-						'blue','blue',
-						'green','green',
-						'magenta','magenta',
-						'yellow','yellow',
+						'#ff6666','#ff6666',
+						'#66ffff','#66ffff',
+						'#6666ff','#6666ff',
+						'#66ff66','#66ff66',
+						'#ff66ff','#ff66ff',
+						'#ffff66','#ffff66',
 					],
 					strokes: [
 					],
@@ -163,7 +168,7 @@
 				}
 			}
 
-			function makeCubeWire(width, height, depth, labels) {
+			function makeCubeWire(width, height, depth, labels, frontFacing, strokeColor, lineWidth) {
 				return {
 					vertices: [
 						[width,height,depth], 
@@ -190,13 +195,16 @@
 					],
 					colors: null,
 					strokes: [
-						[4,0,1,5],
-						[6,2,3,7],
+						[4,0],[0,1], [1,5],[5,4],
+						[6,2],[2,3],[3,7],[7,6],
 						[0,3],[1,2],[5,6],[4,7]
 					],
 					labels: labels ? [
 						'a','b','c','d','e','f','g','h'
 					] : false,
+					frontFacing: frontFacing || 0,
+					strokeColor: strokeColor,
+					lineWidth: lineWidth,
 				}
 			}
 
@@ -318,7 +326,7 @@
 				}
 			}
 
-			function drawMesh(ctx, cam, mesh) {
+			function drawMesh(ctx, cam, mesh, clip) {
 				var vertices = mesh.vertices.map((v) => vectorMultiplyMatrix(v, cam))
 				var vertices2D = vertices.map(([x,y,z]) => [
 					x/z,
@@ -330,8 +338,50 @@
 				})
 				var clippedFaces = sortedFaceIds
 				var facesClockwise = sortedFaceIds.filter((t) => clockwise(...mesh.faces[t].map((p) => vertices2D[p])))
+				var facesAntiClockwise = sortedFaceIds.filter((t) => !clockwise(...mesh.faces[t].map((p) => vertices2D[p])))
+
+				if(clip) {
+					ctx.lineWidth = 5 * window.devicePixelRatio
+					ctx.beginPath();
+					for(var f=0;f<facesClockwise.length;f++) {
+						var faceId = facesClockwise[f]
+						ctx.fillStyle = mesh.colors[faceId];
+						ctx.strokeStyle = mesh.colors[faceId];
+						ctx.color = mesh.colors[faceId];
+						var v1 = vertices2D[mesh.faces[faceId][0]]
+						var v2 = vertices2D[mesh.faces[faceId][1]]
+						var v3 = vertices2D[mesh.faces[faceId][2]]
+						// var cx = (v1[0] + v2[0] + v3[0]) / 3
+						// var cy = (v1[1] + v2[1] + v3[1]) / 3
+						// var dx1 = v1[0] - cx
+						// var dx2 = v2[0] - cx
+						// var dx3 = v3[0] - cx
+						// var dy1 = v1[1] - cy
+						// var dy2 = v2[1] - cy
+						// var dy3 = v3[1] - cy
+						// var dl1 = Math.sqrt(dx1*dx1 + dy1*dy1)
+						// var dl2 = Math.sqrt(dx2*dx2 + dy2*dy2)
+						// var dl3 = Math.sqrt(dx3*dx3 + dy3*dy3)
+						// var ox1 = dx1 / dl1 * 2
+						// var ox2 = dx2 / dl2 * 2
+						// var ox3 = dx3 / dl3 * 2
+						// var oy1 = dy1 / dl1 * 2
+						// var oy2 = dy2 / dl2 * 2
+						// var oy3 = dy3 / dl3 * 2
+						ctx.moveTo(v1[0], v1[1])
+						ctx.lineTo(v2[0], v2[1])
+						ctx.lineTo(v3[0], v3[1])
+						ctx.closePath()
+					}
+					ctx.clip()
+
+					return
+				}
 
 				if(mesh.colors) {
+					ctx.lineWidth = 1
+					ctx.lineJoin = "round"
+					ctx.lineCap = "round"
 					for(var f=0;f<facesClockwise.length;f++) {
 						var faceId = facesClockwise[f]
 						ctx.fillStyle = mesh.colors[faceId];
@@ -352,17 +402,32 @@
 
 
 				if(mesh.strokes.length) {
-					ctx.strokeStyle = 'black';
-					ctx.lineWidth = 1
+					ctx.strokeStyle = mesh.strokeColor || "black";
+					ctx.lineWidth = (mesh.lineWidth || 1) * window.devicePixelRatio
+					ctx.lineJoin = "round"
+					ctx.lineCap = "round"
 
 					ctx.beginPath();
 					for(var f=0;f<mesh.strokes.length;f++) {
 						var s = mesh.strokes[f]
+						if(mesh.frontFacing == 'all') {
+							if(facesAntiClockwise.some((fid) => {
+								return s.every(v => mesh.faces[fid][0] == v || mesh.faces[fid][1] == v || mesh.faces[fid][2] == v)
+							})) {
+								continue;
+							}
+						}
+						if(mesh.frontFacing == 'some') {
+							if(!facesClockwise.some((fid) => {
+								return s.every(v => mesh.faces[fid][0] == v || mesh.faces[fid][1] == v || mesh.faces[fid][2] == v)
+							})) {
+								continue;
+							}
+						}
 						ctx.moveTo(vertices2D[s[0]][0], vertices2D[s[0]][1])
 						for(var k=1;k<s.length;k++) {
 							ctx.lineTo(vertices2D[s[k]][0], vertices2D[s[k]][1])
 						}
-						ctx.closePath()
 					}
 					ctx.stroke()	
 				}
@@ -378,13 +443,20 @@
 				}
 
 				if(mesh.labels) {
-					ctx.font = "30px Arial";
-					ctx.fillStyle = 'black';
+					ctx.font = "20px monospace";
+					ctx.fillStyle = 'white';
 					ctx.textAlign = "center"; 
 					ctx.textBaseline = "middle";
 					for (var l = 0; l < mesh.labels.length; l++) {
 						if(mesh.labels[l]) {
-							ctx.fillText(mesh.labels[l], vertices2D[l][0]*1.05, vertices2D[l][1]*1.05)
+							if(mesh.frontFacing) {
+								if(!facesClockwise.some((fid) => {
+									return mesh.faces[fid][0] == l || mesh.faces[fid][1] == l || mesh.faces[fid][2] == l
+								})) {
+									continue;
+								}
+							}
+							ctx.fillText(mesh.labels[l], vertices2D[l][0]*1.10, vertices2D[l][1]*1.10)
 						}
 					}
 				}
@@ -408,6 +480,23 @@
 
 				document.body.appendChild(canvas)
 
+				function resize() {
+					W = window.innerWidth * window.devicePixelRatio
+					H = window.innerHeight * window.devicePixelRatio
+					W2 = W/2
+					H2 = H/2
+					canvas.width = W
+					canvas.height = H
+					offscreen.width = W
+					offscreen.height = H
+
+					ctx = canvas.getContext('2d')
+					octx = offscreen.getContext('2d')
+				}
+
+				resize()
+				window.addEventListener('resize',resize)
+
 				var groups = [
 					{
 						meshes: [
@@ -427,50 +516,55 @@
 					},
 					{
 						mask: 
-							transformMesh(makeCubeOpenSide(256, 128, 512), matrixMultiplyMatrix(translation(0,0,-256), rotationY(0))),
+							transformMesh(makeCubeOpenSide(256, 128, 256), matrixMultiplyMatrix(translation(0,0,-256*2), rotationY(0))),
 						meshes: [
 							makeCube(64, 64, 300),
-							makeCubeWire(64, 64, 300),
+							makeCubeWire(64, 64, 300, false, false, '#fff', 1.2),
 						]
 					},
 					{
 						mask: 
-							transformMesh(makeCubeOpenSide(256, 128, 512), matrixMultiplyMatrix(translation(0,0,-256), rotationY(Math.PI/2))),
+							transformMesh(makeCubeOpenSide(256, 128, 256), matrixMultiplyMatrix(translation(0,0,-256*2), rotationY(Math.PI/2))),
 						meshes: [
 							makeCube(32, 32, 32),
-							makeCubeWire(32, 32, 32),
+							makeCubeWire(32, 32, 32, false, false, '#fff', 1.2),
 						]
 					},
 					{
 						mask: 
-							transformMesh(makeCubeOpenSide(256, 128, 512), matrixMultiplyMatrix(translation(0,0,-256), rotationY(Math.PI))),
+							transformMesh(makeCubeOpenSide(256, 128, 256), matrixMultiplyMatrix(translation(0,0,-256*2), rotationY(Math.PI))),
 						meshes: [
 							makeCube(48, 48, 48),
-							makeCubeWire(48, 48, 48),
+							makeCubeWire(48, 48, 48, false, false, '#fff', 1.2),
 						]
 					},
 					{
 						mask: 
-							transformMesh(makeCubeOpenSide(256, 128, 512), matrixMultiplyMatrix(translation(0,0,-256), rotationY(-Math.PI/2))),
+							transformMesh(makeCubeOpenSide(256, 128, 256), matrixMultiplyMatrix(translation(0,0,-256*2), rotationY(-Math.PI/2))),
 						meshes: [
 							makeCube(96, 96, 96),
-							makeCubeWire(96, 96, 96),
+							makeCubeWire(96, 96, 96, false, false, '#fff', 1.2),
 						]
 					},
 					{
 						mask: 
-							transformMesh(makeCubeOpenSide(256, 256, 256), matrixMultiplyMatrix(rotationX(-Math.PI/2), translation(0,128,0))),
+							transformMesh(makeCubeOpenSide(256, 256, 128), matrixMultiplyMatrix(rotationX(-Math.PI/2), translation(0,256,0))),
 						meshes: [
 							transformMesh(makeCube(96, 96, 96), matrixMultiplyMatrix(rotationY(Math.PI/4), rotationX(Math.PI/4))),
-							transformMesh(makeCubeWire(96, 96, 96), matrixMultiplyMatrix(rotationY(Math.PI/4), rotationX(Math.PI/4))),
+							transformMesh(makeCubeWire(96, 96, 96, false, false, '#fff', 1.2), matrixMultiplyMatrix(rotationY(Math.PI/4), rotationX(Math.PI/4))),
 						]
 					},
 					{
 						mask: 
-							transformMesh(makeCubeOpenSide(256, 256, 256), matrixMultiplyMatrix(rotationX(Math.PI/2), translation(0,-128,0))),
+							transformMesh(makeCubeOpenSide(256, 256, 128), matrixMultiplyMatrix(rotationX(Math.PI/2), translation(0,-256,0))),
 						meshes: [
 							transformMesh(makeCube(64, 64, 64), rotationY(Math.PI/4)),
-							transformMesh(makeCubeWire(64, 64, 64), rotationY(Math.PI/4)),
+							transformMesh(makeCubeWire(64, 64, 64, false, false, '#fff', 1.2), rotationY(Math.PI/4)),
+						]
+					},
+					{
+						meshes: [
+							makeCubeWire(256, 128, 256, true, 'all', "black", 1.5),
 						]
 					},
 
@@ -487,10 +581,23 @@
 					ctx.scale(1,1)
 					ctx.clearRect(-W2,-H2,W,H)
 
-					var cam = makeCamera(W,H,0,0,H, camRotationX, camRotationY, 0, camZoom)
+					var cam = makeCamera(W,H,0,0,1000, camRotationX, camRotationY, 0, camZoom)
 					for (var g = 0; g < groups.length; g++) {
 						ctx.save()
-						if(groups[g].opacity < 1 || groups[g].mask) {
+
+
+						if(groups[g].mask) {
+							//ctx.save()
+							//ctx.translate(W2, H2)
+							drawMesh(ctx, cam, groups[g].mask, true)
+							//ctx.translate(-W2, -H2)
+							//ctx.globalCompositeOperation = 'destination-out'
+
+							//drawMesh(ctx, cam, groups[g].mask)
+							//ctx.restore()
+						}
+
+						if(groups[g].opacity < 1) {
 							for (var m = 0; m < groups[g].meshes.length; m++) {
 								octx.save()
 								octx.translate(W2, H2)
@@ -499,15 +606,6 @@
 								for (var m = 0; m < groups[g].meshes.length; m++) {
 									drawMesh(octx, cam, groups[g].meshes[m])
 								}
-								octx.restore()
-							}
-
-							if(groups[g].mask) {
-								octx.save()
-								octx.translate(W2, H2)
-								octx.scale(1,1)
-								octx.globalCompositeOperation = 'destination-out'
-								drawMesh(octx, cam, groups[g].mask)
 								octx.restore()
 							}
 
@@ -550,8 +648,12 @@
 					}
 				})
 				canvas.addEventListener('wheel', function(evt) {
+					if(evt.ctrlKey) {
+						return
+					}
+					evt.preventDefault()
 					camZoom *= Math.pow(2, evt.wheelDelta/400)
-					camZoom = Math.max(0.5, Math.min(3, camZoom))
+					camZoom = Math.max(0.75, Math.min(3, camZoom))
 				})
 			})()
 		</script>
