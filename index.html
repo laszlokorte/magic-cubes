@@ -4,7 +4,13 @@
 		<meta charset="utf-8">
 		<title>Magic Cube</title>
 		<link rel="icon" href="favicon.svg">
+		<meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=no">
+		<meta name="HandheldFriendly" content="true">
 		<style>
+			html {
+			    -webkit-text-size-adjust: none;
+				touch-action: none;
+			}
 
 			:root {
 				height: 100%;
@@ -307,11 +313,11 @@
 				var matrixDrehX = rotationX(winkelX);
 				var matrixDrehY = rotationY(winkelY);
 				var matrixDrehZ = rotationZ(winkelZ);
-				var matrixPosition = translation(positionX, positionY, positionZ);
+				var matrixPosition = translation(positionX, positionY, positionZ-100+0.9*Math.exp((9-1.2*zoom)));
 				var matrixSkaliere = [
-					zoom*W/2, 0, 0, 0,
-					0, zoom*W/2, 0, 0,
-					0, 0, 1, 0,
+					W/2, 0, 0, 0,
+					0, W/2, 0, 0,
+					0, 0, 0.3, 0,
 				];
 
 				return [
@@ -443,7 +449,7 @@
 				}
 
 				if(mesh.labels) {
-					ctx.font = "20px monospace";
+					ctx.font = (20*window.devicePixelRatio)+"px monospace";
 					ctx.fillStyle = 'white';
 					ctx.textAlign = "center"; 
 					ctx.textBaseline = "middle";
@@ -570,7 +576,7 @@
 
 				]
 
-				var camRotationX = -Math.PI*0.3
+				var camRotationX = -Math.PI*0.1
 				var camRotationY = 0.9
 				var camZoom = 1
 
@@ -632,20 +638,39 @@
 
 
 				var camDragging = false
-				canvas.addEventListener('mousedown', function(evt) {
+				var prevX, prevY
+				var pointerCount = 0
+				canvas.addEventListener('pointerdown', function(evt) {
+					pointerCount++
+					if(camDragging || !event.isPrimary) {
+						return
+					}
 					evt.preventDefault()
 					camDragging = true
+					prevX = evt.screenX
+					prevY = evt.screenY
 				})
-				window.addEventListener('mouseup', function(evt) {
+				window.addEventListener('pointerup', function(evt) {
+					pointerCount--
+					if(!camDragging || !event.isPrimary) {
+						return
+					}
 					camDragging = false
 				})
-				window.addEventListener('mousemove', function(evt) {
-					if(camDragging) {
+				window.addEventListener('pointermove', function(evt) {
+					if(!camDragging || !event.isPrimary) {
+						return
+					}
+
+					if(pointerCount === 1) {
 						evt.preventDefault()
-						camRotationX -= evt.movementY/evt.currentTarget.innerHeight * 4
-						camRotationY -= evt.movementX/evt.currentTarget.innerWidth * 4
+						camRotationX -= (evt.screenY - prevY)/evt.currentTarget.innerHeight * 6
+						camRotationY -= (evt.screenX - prevX)/evt.currentTarget.innerWidth * 6
 						camRotationX = Math.max(-Math.PI*0.5, Math.min(Math.PI*0.5, camRotationX))
 					}
+
+					prevX = evt.screenX
+					prevY = evt.screenY
 				})
 				canvas.addEventListener('wheel', function(evt) {
 					if(evt.ctrlKey) {
@@ -653,8 +678,21 @@
 					}
 					evt.preventDefault()
 					camZoom *= Math.pow(2, evt.wheelDelta/400)
-					camZoom = Math.max(0.75, Math.min(3, camZoom))
+					camZoom = Math.max(1, Math.min(12, camZoom))
 				})
+
+				var baseScale = null
+				window.addEventListener('gesturestart', function (evt) {
+				    evt.preventDefault();
+				    baseScale = evt.scale
+				});
+
+				window.addEventListener('gesturechange', function (evt) {
+				    evt.preventDefault();
+					camZoom *= evt.scale/baseScale
+					camZoom = Math.max(1, Math.min(12, camZoom))
+				    baseScale = evt.scale
+				});
 			})()
 		</script>
 	</body>
